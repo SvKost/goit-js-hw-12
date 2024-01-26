@@ -6,53 +6,7 @@ import 'simplelightbox/dist/simple-lightbox.min.css';
 const API_KEY = '41875605-6b47be3c8e074a549a6d5f149';
 const BASE_URL = 'https://pixabay.com/api';
 
-const searchForm = document.querySelector('form');
-const imagesContainer = document.querySelector('.gallery-container');
-
-searchForm.addEventListener('submit', handleSearch);
-
-function handleSearch(event) {
-  event.preventDefault();
-
-  const form = event.currentTarget;
-  const query = form.querySelector('input').value.trim();
-
-  if (query) {
-    imagesContainer.innerHTML = '';
-    showLoader();
-
-    fetchImages(query)
-      .then(images => {
-        if (images.length === 0) {
-          iziToast.show({
-            message:
-              'Sorry, there are no images matching your search query. Please try again!',
-            messageColor: 'white',
-            position: 'topRight',
-            color: 'red',
-          });
-        } else {
-          showImagesGallery(images);
-        }
-      })
-      .catch(onFetchError)
-      .finally(() => {
-        hideLoader();
-        form.reset();
-      });
-  } else {
-    iziToast.show({
-      message: 'Please enter a search query!',
-      messageColor: 'white',
-      position: 'topRight',
-      color: 'red',
-    });
-
-    imagesContainer.innerHTML = '';
-  }
-}
-
-function fetchImages(query) {
+async function fetchImages(query) {
   const searchParams = new URLSearchParams({
     key: API_KEY,
     q: query,
@@ -61,16 +15,56 @@ function fetchImages(query) {
     safesearch: true,
   });
 
-  return fetch(`${BASE_URL}/?${searchParams}`).then(response => {
-    if (!response.ok) {
-      throw new Error(response.statusText);
+  const response = await fetch(`${BASE_URL}/?${searchParams}`);
+  const data = await response.json();
+  return data.hits;
+}
+
+const refs = {
+  searchForm: document.querySelector('form'),
+  imagesContainer: document.querySelector('.gallery-container'),
+};
+
+const ERROR_MESSAGES = {
+  noImages:
+    'Sorry, there are no images matching your search query. Please try again!',
+  enterQuery: 'Please enter a search query!',
+};
+
+refs.searchForm.addEventListener('submit', handleSearch);
+
+async function handleSearch(event) {
+  event.preventDefault();
+
+  const form = event.currentTarget;
+  const query = form.elements.input.value.trim();
+
+  if (query) {
+    refs.imagesContainer.innerHTML = '';
+    showLoader();
+
+    try {
+      const data = await fetchImages(query);
+      if (data.length === 0) {
+        showIziToast(ERROR_MESSAGES.noImages);
+      } else {
+        showImagesGallery(data);
+      }
+    } catch {
+      onFetchError();
+    } finally {
+      hideLoader();
+      form.reset();
     }
-    return response.json().then(data => data.hits);
-  });
+  } else {
+    showIziToast(ERROR_MESSAGES.enterQuery);
+
+    refs.imagesContainer.innerHTML = '';
+  }
 }
 
 function showImagesGallery(images) {
-  imagesContainer.innerHTML = '';
+  refs.imagesContainer.innerHTML = '';
 
   const createQueryImagesMarkup = ({
     webformatURL,
@@ -98,7 +92,7 @@ function showImagesGallery(images) {
 
   const galleryMarkup = images.map(createQueryImagesMarkup).join('');
 
-  imagesContainer.insertAdjacentHTML('beforeend', galleryMarkup);
+  refs.imagesContainer.insertAdjacentHTML('beforeend', galleryMarkup);
   lightbox.refresh();
 }
 
@@ -108,12 +102,20 @@ const lightbox = new SimpleLightbox('.gallery a', {
 });
 
 function onFetchError() {
+  showIziToast(ERROR_MESSAGES.noImages);
+}
+
+function showIziToast(
+  message,
+  messageColor = 'white',
+  position = 'topRight',
+  color = 'red'
+) {
   iziToast.show({
-    message:
-      'Sorry, there are no images matching your search query. Please try again!',
-    messageColor: 'white',
-    position: 'topRight',
-    color: 'red',
+    message,
+    messageColor,
+    position,
+    color,
   });
 }
 
