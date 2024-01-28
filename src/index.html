@@ -13,12 +13,16 @@
   <body>
     <form>
       <input type="text" name="input" placeholder="Search images..." />
-      <button type="submit">Search</button>
+      <button type="submit" name="search-btn">Search</button>
     </form>
 
-    <div class="loader hidden"></div>
+    <ul class="gallery-container"></ul>
 
-    <div class="gallery-container"></div>
+    <button class="is-hidden" type="button" data-action="load-more">
+      Load more
+    </button>
+
+    <div class="loader is-hidden" id="loader"></div>
 
     <script src="./main.js" type="module" defer></script>
   </body>

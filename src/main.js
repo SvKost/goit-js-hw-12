@@ -2,28 +2,37 @@ import iziToast from 'izitoast';
 import 'izitoast/dist/css/iziToast.min.css';
 import SimpleLightbox from 'simplelightbox';
 import 'simplelightbox/dist/simple-lightbox.min.css';
+import axios from 'axios';
 
 const API_KEY = '41875605-6b47be3c8e074a549a6d5f149';
 const BASE_URL = 'https://pixabay.com/api';
 
-async function fetchImages(query) {
-  const searchParams = new URLSearchParams({
-    key: API_KEY,
-    q: query,
-    image_type: 'photo',
-    orientation: 'horizontal',
-    safesearch: true,
-  });
-
-  const response = await fetch(`${BASE_URL}/?${searchParams}`);
-  const data = await response.json();
-  return data.hits;
+async function fetchImages(query, page = 1) {
+  return axios
+    .get(`${BASE_URL}/`, {
+      params: {
+        key: API_KEY,
+        q: query,
+        image_type: 'photo',
+        orientation: 'horizontal',
+        safesearch: true,
+        per_page: 3, // TODO: change quantity
+        page,
+      },
+    })
+    .then(({ data }) => data.hits);
 }
 
 const refs = {
   searchForm: document.querySelector('form'),
   imagesContainer: document.querySelector('.gallery-container'),
+  loadMoreBtn: document.querySelector('[data-action="load-more"]'),
+  loader: document.querySelector('.loader'),
 };
+
+let query = '';
+let page = 1;
+let maxPage = 0;
 
 const ERROR_MESSAGES = {
   noImages:
@@ -36,36 +45,61 @@ refs.searchForm.addEventListener('submit', handleSearch);
 async function handleSearch(event) {
   event.preventDefault();
 
+  refs.imagesContainer.innerHTML = '';
+  page = 1;
+
   const form = event.currentTarget;
-  const query = form.elements.input.value.trim();
+  query = form.elements.input.value.trim();
 
-  if (query) {
+  if (!query) {
     refs.imagesContainer.innerHTML = '';
-    showLoader();
-
-    try {
-      const data = await fetchImages(query);
-      if (data.length === 0) {
-        showIziToast(ERROR_MESSAGES.noImages);
-      } else {
-        showImagesGallery(data);
-      }
-    } catch {
-      onFetchError();
-    } finally {
-      hideLoader();
-      form.reset();
-    }
-  } else {
     showIziToast(ERROR_MESSAGES.enterQuery);
+    return;
+  }
 
-    refs.imagesContainer.innerHTML = '';
+  try {
+    showLoader();
+    const data = await fetchImages(query);
+    showImagesGallery(data);
+
+    if (data.length > 0) {
+      refs.loadMoreBtn.classList.remove('is-hidden');
+      refs.loadMoreBtn.addEventListener('click', handleLoadMore);
+    } else {
+      refs.loadMoreBtn.classList.add('is-hidden');
+    }
+  } catch {
+    onFetchError();
+  } finally {
+    hideLoader();
+    form.reset();
+  }
+}
+
+async function handleLoadMore() {
+  page += 1;
+
+  refs.loadMoreBtn.classList.add('is-hidden');
+  showLoader();
+
+  try {
+    const data = await fetchImages(query, page);
+
+    showImagesGallery(data);
+    refs.loadMoreBtn.classList.remove('is-hidden');
+  } catch (error) {
+    console.log(error);
+  } finally {
+    hideLoader();
+
+    if (page === data.totalHits) {
+      refs.loadMoreBtn.classList.add('is-hidden');
+      refs.loadMoreBtn.removeEventListener('click', handleLoadMore);
+    }
   }
 }
 
 function showImagesGallery(images) {
-  refs.imagesContainer.innerHTML = '';
-
   const createQueryImagesMarkup = ({
     webformatURL,
     largeImageURL,
@@ -75,8 +109,7 @@ function showImagesGallery(images) {
     comments,
     downloads,
   }) => `
-  
-    <li class="gallery">
+      <li class="gallery">
       <a href="${largeImageURL}">
         <img class="image-preview" src="${webformatURL}" alt="${tags}">
       </a>
@@ -87,8 +120,7 @@ function showImagesGallery(images) {
       <p>Downloads ${downloads}</p>
       </div>
     </li>
-  
-  `;
+    `;
 
   const galleryMarkup = images.map(createQueryImagesMarkup).join('');
 
@@ -120,11 +152,9 @@ function showIziToast(
 }
 
 function showLoader() {
-  const loadingString = document.querySelector('.loader');
-  loadingString.classList.remove('hidden');
+  refs.loader.classList.remove('is-hidden');
 }
 
 function hideLoader() {
-  const loadingString = document.querySelector('.loader');
-  loadingString.classList.add('hidden');
+  refs.loader.classList.add('is-hidden');
 }
