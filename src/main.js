@@ -7,20 +7,27 @@ import axios from 'axios';
 const API_KEY = '41875605-6b47be3c8e074a549a6d5f149';
 const BASE_URL = 'https://pixabay.com/api';
 
+let query = '';
+let page = 1;
+let maxPage = 0;
+
 async function fetchImages(query, page = 1) {
-  return axios
-    .get(`${BASE_URL}/`, {
-      params: {
-        key: API_KEY,
-        q: query,
-        image_type: 'photo',
-        orientation: 'horizontal',
-        safesearch: true,
-        per_page: 3, // TODO: change quantity
-        page,
-      },
-    })
-    .then(({ data }) => data.hits);
+  const response = await axios.get(`${BASE_URL}/`, {
+    params: {
+      key: API_KEY,
+      q: query,
+      image_type: 'photo',
+      orientation: 'horizontal',
+      safesearch: true,
+      per_page: 40,
+      page,
+    },
+  });
+
+  const { hits, totalHits } = response.data;
+  maxPage = Math.ceil(totalHits / page);
+
+  return { hits };
 }
 
 const refs = {
@@ -30,14 +37,11 @@ const refs = {
   loader: document.querySelector('.loader'),
 };
 
-let query = '';
-let page = 1;
-let maxPage = 0;
-
 const ERROR_MESSAGES = {
   noImages:
     'Sorry, there are no images matching your search query. Please try again!',
   enterQuery: 'Please enter a search query!',
+  endOfResults: "We're sorry, but you've reached the end of search results.",
 };
 
 refs.searchForm.addEventListener('submit', handleSearch);
@@ -60,16 +64,17 @@ async function handleSearch(event) {
   try {
     showLoader();
     const data = await fetchImages(query);
-    showImagesGallery(data);
+    showImagesGallery(data.hits);
 
-    if (data.length > 0) {
+    if (data.hits.length > 0) {
       refs.loadMoreBtn.classList.remove('is-hidden');
       refs.loadMoreBtn.addEventListener('click', handleLoadMore);
     } else {
       refs.loadMoreBtn.classList.add('is-hidden');
     }
-  } catch {
-    onFetchError();
+  } catch (error) {
+    console.log(error);
+    // onFetchError();
   } finally {
     hideLoader();
     form.reset();
@@ -83,19 +88,20 @@ async function handleLoadMore() {
   showLoader();
 
   try {
-    const data = await fetchImages(query, page);
+    const { hits } = await fetchImages(query, page);
 
-    showImagesGallery(data);
+    showImagesGallery(hits);
     refs.loadMoreBtn.classList.remove('is-hidden');
   } catch (error) {
     console.log(error);
   } finally {
     hideLoader();
+  }
 
-    if (page === data.totalHits) {
-      refs.loadMoreBtn.classList.add('is-hidden');
-      refs.loadMoreBtn.removeEventListener('click', handleLoadMore);
-    }
+  if (page === maxPage) {
+    refs.loadMoreBtn.classList.add('is-hidden');
+    refs.loadMoreBtn.removeEventListener('click', handleLoadMore);
+    showIziToast(ERROR_MESSAGES.endOfResults);
   }
 }
 
