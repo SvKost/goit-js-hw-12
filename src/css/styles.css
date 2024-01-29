@@ -84,6 +84,12 @@ button {
   font-weight: 500;
 }
 
+.load-more-btn {
+  width: 125px;
+  height: 40px;
+  margin: 0 auto;
+}
+
 button:hover,
 button:focus {
   background: #6c8cff;
@@ -100,6 +106,7 @@ button:focus {
 
 .gallery {
   width: calc((100% - 48px) / 3);
+  border: 1px solid #808080;
 }
 
 .image-preview {
@@ -111,6 +118,10 @@ button:focus {
 .image-description {
   display: flex;
   margin-top: 8px;
+}
+
+p {
+  font-weight: bold;
 }
 
 .loader {
